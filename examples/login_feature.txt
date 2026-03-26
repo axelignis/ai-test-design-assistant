@@ -1,0 +1,12 @@
+As a registered user, I want to log in to my account using my email address and
+password so that I can access my personal dashboard and settings.
+
+Acceptance Criteria:
+- The login form accepts an email address and password
+- Valid credentials redirect the user to their dashboard
+- Invalid credentials display an error message without revealing which field is wrong
+- Passwords are never displayed in plain text
+- After 5 consecutive failed attempts, the account is temporarily locked for 15 minutes
+- A "forgot password" link allows users to initiate a password reset via email
+- Sessions expire after 30 minutes of inactivity
+- Login activity is recorded in the user's account audit log
