@@ -1,0 +1,23 @@
+Analyze the following software requirement and produce a structured test design artifact.
+
+Focus on:
+- Realistic user paths beyond the obvious happy path
+- Failure modes that actually occur in production systems
+- Boundary conditions specific to the described domain
+- Questions a QA engineer must answer before writing tests
+- Risks tied to integration points, security, data integrity, or missing specification
+
+REQUIREMENT:
+{REQUIREMENT}
+
+{SOURCE_TYPE_HINT}
+
+Respond with a JSON object matching this schema:
+
+{
+  "positive_scenarios": ["..."],
+  "negative_scenarios": ["..."],
+  "edge_cases": ["..."],
+  "clarification_questions": ["..."],
+  "risks": ["..."]
+}
