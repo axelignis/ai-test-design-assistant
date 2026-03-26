@@ -1,8 +1,12 @@
 """
 AI generation layer.
 
-Responsibility: take a normalized RequirementInput, call the AI, and return
-a validated TestDesignOutput. Nothing else.
+Responsibility: take a normalized RequirementInput, call the configured LLM
+provider, and return a validated TestDesignOutput. Nothing else.
+
+Provider is selected via the LLM_PROVIDER environment variable:
+    LLM_PROVIDER=anthropic  (default)
+    LLM_PROVIDER=ollama
 
 Entry point:
     python -m src.generator <requirement_file>
@@ -12,6 +16,7 @@ import json
 import os
 import re
 import sys
+import urllib.request
 from pathlib import Path
 
 import anthropic
@@ -25,7 +30,8 @@ load_dotenv()
 
 _SYSTEM_PROMPT_PATH = Path(__file__).parent / "prompts" / "system.txt"
 _USER_TEMPLATE_PATH = Path(__file__).parent / "prompts" / "test_design.txt"
-_DEFAULT_MODEL = "claude-sonnet-4-6"
+_DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-6"
+_DEFAULT_OLLAMA_MODEL = "qwen2.5:7b"
 
 
 def _load_system_prompt() -> str:
@@ -59,16 +65,13 @@ def _clean_response(raw: str) -> str:
     return raw.strip()
 
 
-def generate(requirement: RequirementInput) -> TestDesignOutput:
+def _call_anthropic(system_prompt: str, user_message: str) -> str:
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         raise EnvironmentError("ANTHROPIC_API_KEY is not set")
 
-    model = os.environ.get("ANTHROPIC_MODEL", _DEFAULT_MODEL)
+    model = os.environ.get("ANTHROPIC_MODEL", _DEFAULT_ANTHROPIC_MODEL)
     client = anthropic.Anthropic(api_key=api_key)
-
-    system_prompt = _load_system_prompt()
-    user_message = _build_prompt(requirement, _load_user_template())
 
     message = client.messages.create(
         model=model,
@@ -77,7 +80,50 @@ def generate(requirement: RequirementInput) -> TestDesignOutput:
         messages=[{"role": "user", "content": user_message}],
     )
 
-    raw = _clean_response(message.content[0].text)
+    return message.content[0].text
+
+
+def _call_ollama(system_prompt: str, user_message: str) -> str:
+    base_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+    model = os.environ.get("OLLAMA_MODEL", _DEFAULT_OLLAMA_MODEL)
+
+    payload = json.dumps({
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message},
+        ],
+        "stream": False,
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        f"{base_url}/api/chat",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+    )
+
+    with urllib.request.urlopen(req) as response:
+        result = json.loads(response.read().decode("utf-8"))
+
+    return result["message"]["content"]
+
+
+def generate(requirement: RequirementInput) -> TestDesignOutput:
+    provider = os.environ.get("LLM_PROVIDER", "anthropic").lower()
+
+    system_prompt = _load_system_prompt()
+    user_message = _build_prompt(requirement, _load_user_template())
+
+    if provider == "anthropic":
+        raw_text = _call_anthropic(system_prompt, user_message)
+    elif provider == "ollama":
+        raw_text = _call_ollama(system_prompt, user_message)
+    else:
+        raise ValueError(
+            f"Unknown LLM_PROVIDER: {provider!r}. Supported values: anthropic, ollama"
+        )
+
+    raw = _clean_response(raw_text)
 
     try:
         data = json.loads(raw)
