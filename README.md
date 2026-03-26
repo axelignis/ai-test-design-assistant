@@ -116,8 +116,10 @@ from src.reporter import generate_report, write_report
 requirement = normalize(Path("examples/login_feature.txt").read_text())
 output = generate(requirement)
 report = generate_report(requirement, output)
-write_report(report, Path("report.md"))
+write_report(report, Path("reports/login_feature.md"))
 ```
+
+Generated reports are execution artifacts and are not tracked in Git.
 
 ## Running tests
 
